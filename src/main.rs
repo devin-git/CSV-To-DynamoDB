@@ -20,13 +20,13 @@ async fn main() {
     let csv_filename = args[1].to_owned();
     let region = read_text("Input Region (eg. ap-southeast-2):");
     let table_name = read_text("Input table name:");
-    let max_requests = read_int("Input max number of items per batch write (1-25):", 1, 25);
-    let batch_interval = read_int("Input interval (in milliseconds) between batch write (10-5000):", 10, 5000);
+    let batch_size = read_int("Input batch size (1-25):", 1, 25);
+    let batch_interval = read_int("Input batch interval in milliseconds (10-5000):", 10, 5000);
 
     let client = Dynamo::new(
         region,
         table_name,
-        max_requests,
+        batch_size,
         batch_interval,
     );
 

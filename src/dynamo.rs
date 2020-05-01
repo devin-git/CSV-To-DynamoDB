@@ -5,17 +5,17 @@ use std::collections::HashMap;
 
 pub struct Dynamo {
     client: DynamoDbClient,
-    max_requests: usize,
+    batch_size: usize,
     batch_interval: u64,
     table_name: String,
 }
 
 impl Dynamo {
 
-    pub fn new(region: String, table_name: String, max_requests: i32, batch_interval: i32) -> Dynamo {
+    pub fn new(region: String, table_name: String, batch_size: i32, batch_interval: i32) -> Dynamo {
         Dynamo {
             client: DynamoDbClient::new(region.parse().unwrap()),
-            max_requests: max_requests as usize,
+            batch_size: batch_size as usize,
             batch_interval: batch_interval as u64,
             table_name: table_name,
         }
@@ -31,7 +31,7 @@ impl Dynamo {
 
         for row in rows {
             current_batch.push(row);
-            if current_batch.len() >= self.max_requests {
+            if current_batch.len() >= self.batch_size {
                 self.batch_write(header, &current_batch).await;
                 // wait for specified period 
                 sleep(Duration::from_millis(self.batch_interval));
