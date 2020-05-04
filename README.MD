@@ -1,4 +1,4 @@
-### import CSV into DynamoDB Table
+### Import CSV into DynamoDB Table
 
 ##### Usage:
 ./batch_write input.csv
