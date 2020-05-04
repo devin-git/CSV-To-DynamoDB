@@ -104,7 +104,7 @@ impl Dynamo {
                 for attr in attrs {
                     table_attrs.insert(attr.attribute_name, attr.attribute_type);
                 }
-                println!("{}", serde_json::to_string(&table_attrs).unwrap());
+                println!("Attribute Definition: {}", serde_json::to_string(&table_attrs).unwrap());
             },
             Err(error) => {
                 println!("Cannot read description of table: {}. {}", self.table_name, error);              
@@ -158,7 +158,6 @@ fn build_attr(column_type: Option<&String>, text: String) -> AttributeValue {
         },
         None => {
             // type is unknown
-            println!("guess for {}", text);
             guess_attr(text) 
         }
     }
