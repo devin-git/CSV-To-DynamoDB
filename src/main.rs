@@ -1,7 +1,6 @@
-
-use std::{ process, env};
+use std::{process, env};
 use dynamo::{Dynamo};
-use utility::{read_int, read_text, parse_csv};
+use utility::{read_int, read_text, parse_csv, show_help};
 
 mod dynamo;
 mod utility;
@@ -13,6 +12,7 @@ async fn main() {
 
     if args.len() < 2 {
         println!("Please provide csv file name.");
+        show_help();
         process::exit(-1);
     }
 
@@ -23,7 +23,7 @@ async fn main() {
     let batch_size = read_int("Input batch size (1-25):", 1, 25);
     let batch_interval = read_int("Input batch interval in milliseconds (10-5000):", 10, 5000);
 
-    let client = Dynamo::new(
+    let mut client = Dynamo::new(
         region,
         table_name,
         batch_size,
@@ -33,5 +33,4 @@ async fn main() {
     let (header, rows) = parse_csv(csv_filename);
 
     client.write(&header, &rows).await;
-
 }
