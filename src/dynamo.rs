@@ -1,7 +1,7 @@
 use rusoto_dynamodb::{DynamoDb, DynamoDbClient, AttributeValue, BatchWriteItemInput, 
     DescribeTableInput, WriteRequest, PutRequest};
 use bytes::{Bytes};
-use std::{thread::sleep, time::Duration};
+use std::{thread::sleep, time::Duration, fs::File, io::{BufWriter, Write} };
 use std::collections::HashMap;
 
 pub struct Dynamo {
@@ -9,8 +9,11 @@ pub struct Dynamo {
     batch_size: usize,
     batch_interval: u64,
     table_name: String,
-    table_attrs: HashMap<String, String>
+    table_attrs: HashMap<String, String>,
+    logger: BufWriter<File>
 }
+
+const LOG_FILE_NAME: &str = "batch_write_logs.txt";
 
 impl Dynamo {
 
@@ -21,6 +24,7 @@ impl Dynamo {
             batch_interval: batch_interval as u64,
             table_name: table_name,
             table_attrs: HashMap::new(),
+            logger: BufWriter::new(File::create(LOG_FILE_NAME).unwrap())
         }
     }
 
@@ -28,6 +32,7 @@ impl Dynamo {
     pub async fn write(&mut self, header: &Vec<String>, rows: &Vec<Vec<String>>) {
 
         println!();
+        println!("Logs will be saved to {}", LOG_FILE_NAME);
         println!("Batch write process started..");
 
         // get attribute type definition (including only string, number and binary)
@@ -53,7 +58,7 @@ impl Dynamo {
     }
 
     // one batch write
-    async fn batch_write(&self, header: &Vec<String>, rows: &Vec<&Vec<String>>) {
+    async fn batch_write(&mut self, header: &Vec<String>, rows: &Vec<&Vec<String>>) {
 
         let mut write_requests = Vec::new();
 
@@ -79,11 +84,11 @@ impl Dynamo {
 
             match self.client.batch_write_item(input).await {
                 Ok(_) => {
-                    print_write_requests("Write success:", &write_requests)
+                    self.log_requests("Write success:", &write_requests)
                 },
                 Err(error) => {
-                    print_write_requests("Write failure:", &write_requests);
-                    println!("Error message: {}", error);
+                    self.log_requests("Write failure:", &write_requests);
+                    writeln!(self.logger, "Error message: {}", error).expect("Error: cannot save logs");
                 }
             }
         }
@@ -104,13 +109,23 @@ impl Dynamo {
                 for attr in attrs {
                     table_attrs.insert(attr.attribute_name, attr.attribute_type);
                 }
-                println!("Attribute Definition: {}", serde_json::to_string(&table_attrs).unwrap());
+                println!("Table Definition: {}", serde_json::to_string(&table_attrs).unwrap());
             },
             Err(error) => {
                 println!("Cannot read description of table: {}. {}", self.table_name, error);              
             }
         }
         table_attrs
+    }
+
+    // write logs to LOG_FILE_NAME
+    fn log_requests(&mut self, text: &str, requests: &Vec<WriteRequest>) {
+        for request in requests {
+            // need to convert request hashmap to vector then sort by key
+            let mut v: Vec<_> = request.put_request.clone().unwrap().item.into_iter().collect();
+            v.sort_by(|x,y| x.0.cmp(&y.0));
+            writeln!(self.logger, "{} {}", text.to_owned(), serde_json::to_string(&v).unwrap()).expect("Error: cannot save logs.");
+        } 
     }
 }
 
@@ -130,14 +145,14 @@ fn build_write_request(header: &Vec<String>, row: &Vec<String>, table_attrs: &Ha
 }
 
 // print serialised write request
-fn print_write_requests(text: &str, requests: &Vec<WriteRequest>) {
-    for request in requests {
-        // need to convert request hashmap to vector then sort by key
-        let mut v: Vec<_> = request.put_request.clone().unwrap().item.into_iter().collect();
-        v.sort_by(|x,y| x.0.cmp(&y.0));
-        println!("{} {}", text.to_owned(), serde_json::to_string(&v).unwrap())
-    } 
-}
+// fn print_write_requests(text: &str, requests: &Vec<WriteRequest>) {
+//     for request in requests {
+//         // need to convert request hashmap to vector then sort by key
+//         let mut v: Vec<_> = request.put_request.clone().unwrap().item.into_iter().collect();
+//         v.sort_by(|x,y| x.0.cmp(&y.0));
+//         println!("{} {}", text.to_owned(), serde_json::to_string(&v).unwrap())
+//     } 
+// }
 
 fn build_attr(column_type: Option<&String>, text: String) -> AttributeValue {
     match column_type {
