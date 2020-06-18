@@ -67,7 +67,8 @@ pub fn read_text(prompt_text: &str) -> String {
 pub fn show_help() {
     let help_info = r#"
 Usage:
-./batch_write input.csv
+Linux or macOS: ./csv_to_dynamo input.csv
+Windows: csv_to_dynamo input.csv
 
 CSV Type Inference:
 This program reads DynamoDB table description to help determine type of some attributes.
