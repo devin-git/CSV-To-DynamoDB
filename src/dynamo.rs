@@ -1,3 +1,4 @@
+use serde_json::Value;
 use rusoto_dynamodb::{DynamoDb, DynamoDbClient, AttributeValue, BatchWriteItemInput, 
     DescribeTableInput, WriteRequest, PutRequest};
 use bytes::{Bytes};
@@ -182,14 +183,14 @@ fn build_attr(column_type: Option<&String>, text: String) -> AttributeValue {
 // supports Bool, Number, String, List, Map, Number Set, String Set
 fn guess_attr(text: String) -> AttributeValue {
     let lowered_text = text.to_lowercase();
-    let parsed_as_list = serde_json::from_str::<Vec<AttributeValue>>(&text);
+    // let luck = serde_json::from_str::<Vec<String>>(&text);
+    let parsed_as_list_map = serde_json::from_str::<Vec<HashMap<String, String>>>(&text);
     let parsed_as_map = serde_json::from_str::<HashMap<String, AttributeValue>>(&text);
     let parsed_as_set = serde_json::from_str::<Vec<String>>(&text);
+    let parsed_as_list = serde_json::from_str::<Vec<AttributeValue>>(&text);
 
-    if parsed_as_list.is_ok() {
-        // list
-        build_list_attr(parsed_as_list.unwrap())
-
+    if parsed_as_list_map.is_ok() {
+        build_list_map_attr(parsed_as_list_map.unwrap())
     } else if parsed_as_map.is_ok() {
         // map
         build_map_attr(parsed_as_map.unwrap())
@@ -198,7 +199,11 @@ fn guess_attr(text: String) -> AttributeValue {
         // can be string set or number set
         build_set_attr(parsed_as_set.unwrap())
 
-    }  else if lowered_text == "true" || lowered_text == "false" {
+    }  else if parsed_as_list.is_ok() {
+        // list
+        build_list_attr(parsed_as_list.unwrap())
+
+    } else if lowered_text == "true" || lowered_text == "false" {
         // boolean
         build_bool_attr(lowered_text == "true")
 
@@ -243,6 +248,30 @@ fn build_bytes_attr(b: Bytes) -> AttributeValue {
 fn build_list_attr(list: Vec<AttributeValue>) -> AttributeValue {
     AttributeValue {
         l: Some(list),
+        ..Default::default()
+    }
+}
+
+fn build_list_map_attr(list: Vec<HashMap<String, String>>) -> AttributeValue {
+    let mut maps = Vec::new();
+    for x in list {
+        maps.push(build_map_string_attr(x));
+    }
+    AttributeValue {
+        l: Some(maps),
+        ..Default::default()
+    }
+}
+
+fn build_map_string_attr(map: HashMap<String, String>) -> AttributeValue {
+    let mut new_map = HashMap::new();
+
+    for (k, v) in map.iter() {
+        new_map.insert(k.to_string(), guess_attr(v.to_string()));
+    }
+
+    AttributeValue {
+        m: Some(new_map),
         ..Default::default()
     }
 }
