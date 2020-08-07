@@ -1,7 +1,11 @@
 ### Import CSV into DynamoDB Table
 
+##### How to build:
+Run `cargo build --release` in the repo folder. 
+
 ##### Usage:
-./batch_write input.csv
+- Linux / macOS: `./csv_to_dynamo input.csv`
+- Windows: `csv_to_dynamo input.csv`
 
 ##### CSV Type Inference
 This program reads DynamoDB table description to help determine type of some attributes.
