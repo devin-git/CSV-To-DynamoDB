@@ -5,47 +5,58 @@ use bytes::{Bytes};
 use std::{thread::sleep, time::Duration, fs::File, io::{BufWriter, Write} };
 use std::collections::HashMap;
 
+
 pub struct Dynamo {
     client: DynamoDbClient,
-    batch_size: usize,
-    batch_interval: u64,
-    table_name: String,
+    config: Config,
     table_attrs: HashMap<String, String>,
     logger: BufWriter<File>
+}
+
+pub struct Config {
+    pub region: String, 
+    pub table_name: String,
+    pub batch_size: usize,
+    pub batch_interval: u64,
+    pub should_use_set_by_default: bool, // convert list to set in dynamodb when possible
+    pub should_preview_record: bool,
 }
 
 const LOG_FILE_NAME: &str = "batch_write_logs.txt";
 
 impl Dynamo {
 
-    pub fn new(region: String, table_name: String, batch_size: i32, batch_interval: i32) -> Dynamo {
+    pub fn new(config: Config) -> Dynamo {
         Dynamo {
-            client: DynamoDbClient::new(region.parse().unwrap()),
-            batch_size: batch_size as usize,
-            batch_interval: batch_interval as u64,
-            table_name: table_name,
+            client: DynamoDbClient::new(config.region.parse().unwrap()),
+            config: config,
             table_attrs: HashMap::new(),
             logger: BufWriter::new(File::create(LOG_FILE_NAME).unwrap())
         }
     }
 
-    // write all records into dynamoDB (multiple batches)
-    pub async fn write(&mut self, header: &Vec<String>, rows: &Vec<Vec<String>>) {
+    // save all records into dynamoDB (multiple batches)
+    pub async fn save_all(&mut self, header: &Vec<String>, rows: &Vec<Vec<String>>) {
 
-        println!();
-        println!("Logs will be saved to {}", LOG_FILE_NAME);
-        println!("Batch write process started..");
-
-        // get attribute type definition (including only string, number and binary)
+        // get table definition (type of primary key/sort key)
         self.table_attrs = self.get_table_attrs().await;
+
+        // preview first record to check if type inference works as expected
+        if self.config.should_preview_record {
+            self.preview_record(header, &rows[0]);
+        }
+
+        println!("Logs will be saved to {}", LOG_FILE_NAME);
+        println!("Batch write process started:");
+
         let mut current_batch = Vec::new();
 
         for row in rows {
             current_batch.push(row);
-            if current_batch.len() >= self.batch_size {
+            if current_batch.len() >= self.config.batch_size {
                 self.batch_write(header, &current_batch).await;
                 // wait for specified period 
-                sleep(Duration::from_millis(self.batch_interval));
+                sleep(Duration::from_millis(self.config.batch_interval));
                 current_batch.clear();
             }
         }
@@ -54,7 +65,14 @@ impl Dynamo {
             self.batch_write(header, &current_batch).await;
         }
 
-        println!("Batch write process ended..");
+        println!("Batch write process ended.");
+        println!();
+    }
+
+    pub fn preview_record(&mut self, header: &Vec<String>, row: &Vec<String>) {
+        println!("Preview first record..");
+        let write_request = build_write_request(header, row, &self.table_attrs);
+        println!("1: {}", serde_json::to_string(&write_request).unwrap());
         println!();
     }
 
@@ -64,7 +82,6 @@ impl Dynamo {
         let mut write_requests = Vec::new();
 
         for row in rows {
-            // number of elements in a row must match header
             if header.len() != row.len() {
                 println!("Mismatch between header and row. Row ignored: {}", row.join(" | "));
             } else {
@@ -75,7 +92,7 @@ impl Dynamo {
         if !write_requests.is_empty() {
 
             let mut batch_items = HashMap::new();
-            batch_items.insert(self.table_name.to_owned(), write_requests.clone());
+            batch_items.insert(self.config.table_name.to_owned(), write_requests.clone());
         
             // this is the structure of DynamoDB BatchWriteItemInput
             let input = BatchWriteItemInput {
@@ -96,12 +113,12 @@ impl Dynamo {
     }
 
     // get attribute definition of the target table
-    // so we can determine the type of each column
+    // we can only get type of primary key / sort key
     async fn get_table_attrs(&self) -> HashMap<String, String> {
         let mut table_attrs = HashMap::new();
 
         let describe_table_input = DescribeTableInput {
-            table_name: self.table_name.to_owned()
+            table_name: self.config.table_name.to_owned()
         };
     
         match self.client.describe_table(describe_table_input).await {
@@ -110,10 +127,10 @@ impl Dynamo {
                 for attr in attrs {
                     table_attrs.insert(attr.attribute_name, attr.attribute_type);
                 }
-                println!("Table Definition: {}", serde_json::to_string(&table_attrs).unwrap());
+                println!("{} table definition: {}", self.config.table_name, serde_json::to_string(&table_attrs).unwrap());
             },
             Err(error) => {
-                println!("Cannot read description of table: {}. {}", self.table_name, error);              
+                println!("Cannot read description of table: {}. {}", self.config.table_name, error);              
             }
         }
         table_attrs

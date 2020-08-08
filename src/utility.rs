@@ -1,7 +1,6 @@
 use std::{process, io, io::Write};
 use csv::{Reader};
 
-
 // read csv, return header and content (in two different vecs)
 pub fn parse_csv(filename: String) -> (Vec<String>, Vec<Vec<String>>) {
     
