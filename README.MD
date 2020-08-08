@@ -8,9 +8,10 @@ Run `cargo build --release` in the repo folder.
 - Windows: `csv_to_dynamo input.csv`
 
 ##### CSV Type Inference
-This program reads DynamoDB table description to help determine type of some attributes.
-However, in most cases, not every column type is defined in the table description. For
-columns of unknown type, it will guess the type based on data format. See examples below:
+This program reads DynamoDB table description to determine the type of primary key and sort key. For non-key attributes, the type will be determined using type inference. However, it is impossible to differentiate between primitive lists and sets, as they share the same format. Thus, **all primitive lists will be converted to sets by default**. This conversion can be disabled via a flag (see help for more information).
+
+Type inference examples:
+
 * Bool: true
 * Number: 123.456
 * String: ABC
