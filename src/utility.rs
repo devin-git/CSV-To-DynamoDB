@@ -71,7 +71,7 @@ pub fn read_yes_or_no(prompt_text: &str, default: bool) -> bool {
     else {
         print!("{} (y/N)", prompt_text);
     }
-    
+
     let mut text = String::new();
     io::stdout().flush().unwrap();
     io::stdin()
@@ -100,10 +100,10 @@ columns of unknown type, it will guess the type based on data format. See exampl
     * Bool: true
     * Number: 123.456
     * String: ABC
-    * Map: {"Name": {"S": "Joe"}, "Age": {"N": "35"}}
-    * List: [{"S": "Item1"}, {"S": "Item2"}]
-    * String Set: ["Giraffe", "Hippo" ,"Zebra"]
-    * Number Set: ["42.2", "-19", "7.5", "3.14"]
+    * Map: {"Name": "Joe", "Age": 15}
+    * List: ["Giraffe", "Hippo" , 100]
+    * String Set or List: ["Giraffe", "Hippo" ,"Zebra"]
+    * Number Set or List: ["42.2", "-19", "7.5", "3.14"]
     "#;
 
     println!("{}", help_info);

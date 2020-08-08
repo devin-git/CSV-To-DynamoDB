@@ -25,6 +25,7 @@ async fn main() {
     let table_name = read_text("Input table name:");
     let batch_size = read_int("Input batch size:", 1, 25);
     let batch_interval = read_int("Input batch interval in milliseconds:", 5, 10000);
+    let should_use_set_by_default = read_yes_or_no("Would you like to convert list to set when possible?", true);
     let should_preview_record = read_yes_or_no("Would you like to preview first record?", true);
     println!();
 
@@ -34,7 +35,7 @@ async fn main() {
             table_name: table_name,
             batch_size: batch_size as usize,
             batch_interval: batch_interval as u64,
-            should_use_set_by_default: true,
+            should_use_set_by_default: should_use_set_by_default,
             should_preview_record: should_preview_record,
         }
     );
