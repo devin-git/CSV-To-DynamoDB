@@ -80,7 +80,7 @@ pub fn read_yes_or_no(prompt_text: &str, default: bool) -> bool {
 
     let answer = text.trim().to_lowercase();
 
-    if answer.len() < 1 {
+    if answer.is_empty() {
         default
     } else {
         answer.chars().nth(0).unwrap() == 'y'
@@ -110,6 +110,7 @@ impl ProgressPrinter {
         while self.current_percentage < updated_percentage && self.current_percentage <= 100 {
             self.current_percentage += 1;
             print!("=");
+            io::stdout().flush().unwrap();
             if self.current_percentage % 10 == 0 {
                 println!(":{}%", self.current_percentage);
             }

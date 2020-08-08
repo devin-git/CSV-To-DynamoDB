@@ -1,18 +1,20 @@
-use rusoto_dynamodb::{DynamoDb, DynamoDbClient, AttributeValue, BatchWriteItemInput, 
+use rusoto_dynamodb::{DynamoDb, DynamoDbClient, BatchWriteItemInput, 
     DescribeTableInput, WriteRequest, PutRequest};
-use bytes::{Bytes};
 use std::{thread::sleep, time::Duration, fs::File, io::{BufWriter, Write}, process::exit};
 use std::collections::HashMap;
 use super::utility::{ProgressPrinter, read_yes_or_no};
+use super::parser::Parser;
 
 pub struct Dynamo {
     client: DynamoDbClient,
+    parser: Parser,
     config: Config,
     table_attrs: HashMap<String, String>,
     logger: BufWriter<File>,
     csv_writer: BufWriter<File>,
 }
 
+#[derive(Clone)]
 pub struct Config {
     pub region: String, 
     pub table_name: String,
@@ -30,6 +32,7 @@ impl Dynamo {
     pub fn new(config: Config) -> Dynamo {
         Dynamo {
             client: DynamoDbClient::new(config.region.parse().unwrap()),
+            parser: Parser::new(config.should_use_set_by_default),
             config: config,
             table_attrs: HashMap::new(),
             logger: BufWriter::new(File::create(LOG_FILE_NAME).unwrap()),
@@ -66,7 +69,7 @@ impl Dynamo {
 
     // preview record for user to check if type inference works as expected
     fn preview_record(&mut self, header: &Vec<String>, row: &Vec<String>) {
-        let item = build_write_request(header, row, &self.table_attrs)
+        let item = self.build_write_request(header, row, &self.table_attrs)
             .put_request.expect("Invalid csv: cannot parse the first record").item;
         println!("Preview the first record in DynamoDB Json format: {}", serde_json::to_string(&item).unwrap());
 
@@ -112,7 +115,7 @@ impl Dynamo {
             if header.len() != row.len() {
                 println!("Mismatch between header and row. Row ignored: {}", row.join(" | "));
             } else {
-                write_requests.push(build_write_request(header, row, &self.table_attrs));
+                write_requests.push(self.build_write_request(header, row, &self.table_attrs));
             }
         }
 
@@ -142,6 +145,21 @@ impl Dynamo {
         }
 
         success_count
+    }
+
+    // build a single write request for given header and row
+    fn build_write_request(&self, header: &Vec<String>, row: &Vec<String>, table_attrs: &HashMap<String, String>) -> WriteRequest {
+        let mut items = HashMap::new();
+
+        // row must have the same length as header (check before calling this method)
+        for (i, column_name) in header.iter().enumerate() {
+            items.insert(column_name.to_owned(), self.parser.build_attr(table_attrs.get(column_name), row[i].to_owned()));
+        }
+        
+        WriteRequest {
+            put_request: Some(PutRequest{item: items}),
+            ..Default::default()
+        }
     }
 
     // get attribute definition of the target table
@@ -188,174 +206,5 @@ impl Dynamo {
             columns.push(format!("\"{}\"", column.replace("\"", "\"\"")));
         }
         writeln!(self.csv_writer, "{}", columns.join(",")).expect("Error: cannot save failed items to csv.");
-    }
-}
-
-// build a single write request for given header and row
-fn build_write_request(header: &Vec<String>, row: &Vec<String>, table_attrs: &HashMap<String, String>) -> WriteRequest {
-    let mut items = HashMap::new();
-
-    // row must have the same length as header (check before calling this method)
-    for (i, column_name) in header.iter().enumerate() {
-        items.insert(column_name.to_owned(), build_attr(table_attrs.get(column_name), row[i].to_owned()));
-    }
-    
-    WriteRequest {
-        put_request: Some(PutRequest{item: items}),
-        ..Default::default()
-    }
-}
-
-fn build_attr(column_type: Option<&String>, text: String) -> AttributeValue {
-    match column_type {
-        Some(some_type) => {
-            match some_type.as_str() {
-                // type is number
-                "N" => build_number_attr(text),
-
-                // type is byte
-                "B" => build_bytes_attr(Bytes::from(text)),
-
-                // type is string
-                "S" => build_string_attr(text),
-
-                // in theory, we won't get any type other than "NBS"
-                _ => guess_attr(text),
-            }
-        },
-        None => {
-            // type is unknown
-            guess_attr(text) 
-        }
-    }
-}
-
-// a simple heuristic method to guess the type of attribute
-// supports Bool, Number, String, List, Map, Number Set, String Set
-fn guess_attr(text: String) -> AttributeValue {
-    let lowered_text = text.to_lowercase();
-    // let luck = serde_json::from_str::<Vec<String>>(&text);
-    let parsed_as_list_map = serde_json::from_str::<Vec<HashMap<String, String>>>(&text);
-    let parsed_as_map = serde_json::from_str::<HashMap<String, AttributeValue>>(&text);
-    let parsed_as_set = serde_json::from_str::<Vec<String>>(&text);
-    let parsed_as_list = serde_json::from_str::<Vec<AttributeValue>>(&text);
-
-    if parsed_as_list_map.is_ok() {
-        build_list_map_attr(parsed_as_list_map.unwrap())
-    } else if parsed_as_map.is_ok() {
-        // map
-        build_map_attr(parsed_as_map.unwrap())
-
-    }  else if parsed_as_set.is_ok() {
-        // can be string set or number set
-        build_set_attr(parsed_as_set.unwrap())
-
-    }  else if parsed_as_list.is_ok() {
-        // list
-        build_list_attr(parsed_as_list.unwrap())
-
-    } else if lowered_text == "true" || lowered_text == "false" {
-        // boolean
-        build_bool_attr(lowered_text == "true")
-
-    } else if text.parse::<f64>().is_ok() {
-        // number
-        build_number_attr(text)
-
-    } else {
-        // string
-        build_string_attr(text)
-    }
-}
-
-fn build_string_attr(text: String) -> AttributeValue {
-    AttributeValue {
-        s: Some(text),
-        ..Default::default()
-    }
-}
-
-fn build_bool_attr(b: bool) -> AttributeValue {
-    AttributeValue {
-        bool: Some(b),
-        ..Default::default()
-    }
-}
-
-fn build_number_attr(text: String) -> AttributeValue {
-    AttributeValue {
-        n: Some(text),
-        ..Default::default()
-    }
-}
-
-fn build_bytes_attr(b: Bytes) -> AttributeValue {
-    AttributeValue {
-        b: Some(b),
-        ..Default::default()
-    }
-}
-
-fn build_list_attr(list: Vec<AttributeValue>) -> AttributeValue {
-    AttributeValue {
-        l: Some(list),
-        ..Default::default()
-    }
-}
-
-fn build_list_map_attr(list: Vec<HashMap<String, String>>) -> AttributeValue {
-    let mut maps = Vec::new();
-    for x in list {
-        maps.push(build_map_string_attr(x));
-    }
-    AttributeValue {
-        l: Some(maps),
-        ..Default::default()
-    }
-}
-
-fn build_map_string_attr(map: HashMap<String, String>) -> AttributeValue {
-    let mut new_map = HashMap::new();
-
-    for (k, v) in map.iter() {
-        new_map.insert(k.to_string(), guess_attr(v.to_string()));
-    }
-
-    AttributeValue {
-        m: Some(new_map),
-        ..Default::default()
-    }
-}
-
-fn build_map_attr(map: HashMap<String, AttributeValue>) -> AttributeValue {
-    AttributeValue {
-        m: Some(map),
-        ..Default::default()
-    }
-}
-
-// determine if it's number set or string set, then build it
-fn build_set_attr(set: Vec<String>) -> AttributeValue {
-    let mut is_number_set = true;
-
-    for x in &set {
-        if x.parse::<f64>().is_err() {
-            is_number_set = false;
-            break;
-        }
-    }
-
-    if is_number_set {
-        // it should be number set, as every element can be parsed as float
-        AttributeValue {
-            ns: Some(set),
-            ..Default::default()
-        }
-    } else {
-        // string set
-        AttributeValue {
-            ss: Some(set),
-            ..Default::default()
-        }
     }
 }
