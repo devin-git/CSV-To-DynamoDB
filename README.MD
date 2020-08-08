@@ -1,4 +1,4 @@
-## Import CSV into DynamoDB Table
+## Import CSV into DynamoDB
 
 #### Features:
 
