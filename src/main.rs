@@ -1,9 +1,8 @@
 use std::{process, env};
-use dynamo::{Dynamo, Config};
-use utility::{read_int, read_text, read_yes_or_no, parse_csv, show_help};
+use modules::dynamo::{Dynamo, Config};
+use modules::utility::{read_int, read_text, read_yes_or_no, parse_csv, show_help};
 
-mod dynamo;
-mod utility;
+mod modules;
 
 #[tokio::main]
 async fn main() {
@@ -26,7 +25,7 @@ async fn main() {
     let batch_size = read_int("Input batch size:", 1, 25);
     let batch_interval = read_int("Input batch interval in milliseconds:", 5, 10000);
     let should_use_set_by_default = read_yes_or_no("Would you like to convert list to set when possible?", true);
-    let should_preview_record = read_yes_or_no("Would you like to preview first record?", true);
+    let should_preview_record = read_yes_or_no("Would you like to preview first record before uploading?", true);
     println!();
 
     let mut client = Dynamo::new(

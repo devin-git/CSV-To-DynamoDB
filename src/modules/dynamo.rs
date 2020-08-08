@@ -4,7 +4,7 @@ use rusoto_dynamodb::{DynamoDb, DynamoDbClient, AttributeValue, BatchWriteItemIn
 use bytes::{Bytes};
 use std::{thread::sleep, time::Duration, fs::File, io::{BufWriter, Write} };
 use std::collections::HashMap;
-
+use super::utility::{read_yes_or_no};
 
 pub struct Dynamo {
     client: DynamoDbClient,
@@ -73,6 +73,7 @@ impl Dynamo {
         println!("Preview first record..");
         let item = build_write_request(header, row, &self.table_attrs).put_request.unwrap().item;
         println!("1: {}", serde_json::to_string(&item).unwrap());
+
         println!();
     }
 
