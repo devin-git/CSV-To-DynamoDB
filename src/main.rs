@@ -45,5 +45,5 @@ async fn main() {
         exit(0);
     }
 
-    client.save_all(&header, &rows).await;
+    client.save_to_dynamo(&header, &rows).await;
 }

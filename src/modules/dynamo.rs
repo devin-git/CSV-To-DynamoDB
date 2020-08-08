@@ -4,13 +4,14 @@ use rusoto_dynamodb::{DynamoDb, DynamoDbClient, AttributeValue, BatchWriteItemIn
 use bytes::{Bytes};
 use std::{thread::sleep, time::Duration, fs::File, io::{BufWriter, Write}, process::exit};
 use std::collections::HashMap;
-use super::utility::{read_yes_or_no};
+use super::utility::{Progress_Printer, read_yes_or_no};
 
 pub struct Dynamo {
     client: DynamoDbClient,
     config: Config,
     table_attrs: HashMap<String, String>,
-    logger: BufWriter<File>
+    logger: BufWriter<File>,
+    csv_writer: BufWriter<File>,
 }
 
 pub struct Config {
@@ -23,6 +24,7 @@ pub struct Config {
 }
 
 const LOG_FILE_NAME: &str = "batch_write_logs.txt";
+const FAILED_CSV_FILE_NAME: &str = "failed_items.csv";
 
 impl Dynamo {
 
@@ -31,12 +33,13 @@ impl Dynamo {
             client: DynamoDbClient::new(config.region.parse().unwrap()),
             config: config,
             table_attrs: HashMap::new(),
-            logger: BufWriter::new(File::create(LOG_FILE_NAME).unwrap())
+            logger: BufWriter::new(File::create(LOG_FILE_NAME).unwrap()),
+            csv_writer: BufWriter::new(File::create(FAILED_CSV_FILE_NAME).unwrap()),
         }
     }
 
     // save all records into dynamoDB (multiple batches)
-    pub async fn save_all(&mut self, header: &Vec<String>, rows: &Vec<Vec<String>>) {
+    pub async fn save_to_dynamo(&mut self, header: &Vec<String>, rows: &Vec<Vec<String>>) {
 
         // preview first record to check if type inference works as expected
         if self.config.should_preview_record {
@@ -46,26 +49,15 @@ impl Dynamo {
         // get table definition (type of primary key/sort key)
         self.table_attrs = self.get_table_attrs().await;
 
-        println!("Logs will be saved to {}", LOG_FILE_NAME);
         println!("Starting to upload records:");
 
-        let mut current_batch = Vec::new();
+        let success_count = self.all_batch_write(header, rows).await;
+        let error_rate = 100.0 * (rows.len() - success_count) as f64 / rows.len() as f64; 
 
-        for row in rows {
-            current_batch.push(row);
-            if current_batch.len() >= self.config.batch_size {
-                self.batch_write(header, &current_batch).await;
-                // wait for specified period 
-                sleep(Duration::from_millis(self.config.batch_interval));
-                current_batch.clear();
-            }
-        }
-        // if there's still some rows left
-        if !current_batch.is_empty() {
-            self.batch_write(header, &current_batch).await;
-        }
-
-        println!("All the records have been processed:");
+        println!("All the records have been processed.");
+        println!("Logs has been saved to {}", LOG_FILE_NAME);
+        println!("{}/{} items has been saved in DynamoDB. Error rate:{:.2}%",
+            success_count, rows.len(), error_rate);
         println!();
     }
 
@@ -84,10 +76,35 @@ impl Dynamo {
         println!();
     }
 
-    // one batch write
-    async fn batch_write(&mut self, header: &Vec<String>, rows: &Vec<&Vec<String>>) {
+    // split all rows into batches and upload them sequentially 
+    pub async fn all_batch_write(&mut self, header: &Vec<String>, rows: &Vec<Vec<String>>) -> usize {
+        let mut current_batch = Vec::new();
+        let mut success_count = 0;
+        let mut progress_printer = Progress_Printer::new(rows.len());
 
+        for (i, row) in rows.iter().enumerate() {
+            current_batch.push(row);
+            progress_printer.update_progress(i + 1);
+            if current_batch.len() >= self.config.batch_size {
+                success_count += self.batch_write(header, &current_batch).await;
+                // wait for specified period 
+                sleep(Duration::from_millis(self.config.batch_interval));
+                current_batch.clear();
+            }
+        }
+        
+        // if there's still some rows left
+        if !current_batch.is_empty() {
+            success_count += self.batch_write(header, &current_batch).await;
+        }
+
+        success_count
+    }
+
+    // one batch write, 25 rows at most
+    async fn batch_write(&mut self, header: &Vec<String>, rows: &Vec<&Vec<String>>) -> usize {
         let mut write_requests = Vec::new();
+        let mut success_count = 0;
 
         for row in rows {
             if header.len() != row.len() {
@@ -98,7 +115,6 @@ impl Dynamo {
         }
 
         if !write_requests.is_empty() {
-
             let mut batch_items = HashMap::new();
             batch_items.insert(self.config.table_name.to_owned(), write_requests.clone());
         
@@ -110,7 +126,8 @@ impl Dynamo {
 
             match self.client.batch_write_item(input).await {
                 Ok(_) => {
-                    self.log_requests("Write success:", &write_requests)
+                    self.log_requests("Write success:", &write_requests);
+                    success_count += rows.len();
                 },
                 Err(error) => {
                     self.log_requests("Write failure:", &write_requests);
@@ -118,6 +135,8 @@ impl Dynamo {
                 }
             }
         }
+
+        success_count
     }
 
     // get attribute definition of the target table
@@ -153,6 +172,11 @@ impl Dynamo {
             v.sort_by(|x,y| x.0.cmp(&y.0));
             writeln!(self.logger, "{} {}", text.to_owned(), serde_json::to_string(&v).unwrap()).expect("Error: cannot save logs.");
         } 
+    }
+
+    // save a row to csv of failed items
+    fn save_row_to_csv(&mut self, row: &Vec<String>) {
+        
     }
 }
 

@@ -87,6 +87,38 @@ pub fn read_yes_or_no(prompt_text: &str, default: bool) -> bool {
     }
 }
 
+pub struct Progress_Printer {
+    current_percentage: usize,
+    current_count: usize,
+    total_count: usize,
+}
+
+// helper to print progress
+// example of 12%
+// ==========:10%
+// ==
+impl Progress_Printer {
+    pub fn new(total_count: usize) -> Progress_Printer {
+        Progress_Printer {
+            current_percentage: 0,
+            current_count: 0,
+            total_count: total_count
+        }
+    }
+
+    pub fn update_progress(&mut self, updated_count: usize) {
+        let updated_percentage = (100.0 * updated_count as f64 / self.total_count as f64).floor() as usize;
+
+        while self.current_percentage < updated_percentage && self.current_percentage <= 100 {
+            self.current_percentage += 1;
+            print!("=");
+            if self.current_percentage % 10 == 0 {
+                println!(":{}%", self.current_percentage);
+            }
+        } 
+    }
+}
+
 pub fn show_help() {
     let help_info = r#"
 Usage:

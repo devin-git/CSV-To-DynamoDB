@@ -9,12 +9,15 @@
 ##### Usage:
 - Interactive Mode
   
-  - `csv_to_dynamo input.csv`
+  - `csv_to_dynamo [filename]`
   
 - Command Mode
 
-    - `csv_to_dynamo -f input.csv`
-    - help: `csv_to_dynamo -h`
+    - `csv_to_dynamo -f [filename] -r [aws_region] -t [table_name]` 
+
+- See help for detailed usage
+
+    -  `csv_to_dynamo -h`
 
     
 
