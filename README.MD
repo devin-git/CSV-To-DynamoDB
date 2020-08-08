@@ -1,11 +1,22 @@
 ### Import CSV into DynamoDB Table
 
-##### How to build:
-Run `cargo build --release` in the repo folder. 
+##### Install:
+
+1. Install [Rust](https://www.rust-lang.org)
+2. Run `cargo install --path . ` in the repo folder
+
 
 ##### Usage:
-- Linux / macOS: `./csv_to_dynamo input.csv`
-- Windows: `csv_to_dynamo input.csv`
+- Interactive Mode
+  
+  - `csv_to_dynamo input.csv`
+  
+- Command Mode
+
+    - `csv_to_dynamo -f input.csv`
+    - help: `csv_to_dynamo -h`
+
+    
 
 ##### CSV Type Inference
 This program reads DynamoDB table description to determine the type of primary key and sort key. For non-key attributes, the type will be determined using type inference. However, it is impossible to differentiate between primitive lists and sets, as they share the same format. Thus, **all primitive lists will be converted to sets by default**. This conversion can be disabled via a flag (see help for more information).
