@@ -1,6 +1,6 @@
 ## Import CSV into DynamoDB Table
 
-####Features:
+#### Features:
 
 - Support complex data (infinitely nested maps and lists)
 - Control throughput via batch size and interval
@@ -29,7 +29,7 @@
         
     
 
-#####Note: all the fields in csv must be quoted and comma-delimited (see examples folder)
+##### Note: all the fields in csv must be quoted and comma-delimited (see examples folder)
 
 
 
