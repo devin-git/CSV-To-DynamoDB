@@ -7,10 +7,11 @@
 - Save failed records into csv
 - Save all requests and error messages into log
 
-#### Install:
+#### Manual Install:
 
 1. Install [Rust](https://www.rust-lang.org)
-2. Run `cargo install --path . ` in the repo folder
+2. Clone the repo
+3. Run `cargo install --path . ` in the repo folder
 
 
 #### Usage:
