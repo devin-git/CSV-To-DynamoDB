@@ -90,10 +90,12 @@ impl Dynamo {
         for (i, row) in rows.iter().enumerate() {
             current_batch.push(row);
             progress_printer.update_progress(i + 1);
+            
             if current_batch.len() >= self.config.batch_size {
                 success_count += self.batch_write(header, &current_batch).await;
-                // wait for specified period 
-                sleep(Duration::from_millis(self.config.batch_interval));
+                if self.config.batch_interval > 0 {
+                    sleep(Duration::from_millis(self.config.batch_interval));
+                }
                 current_batch.clear();
             }
         }
