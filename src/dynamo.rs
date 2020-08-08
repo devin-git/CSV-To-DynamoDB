@@ -47,7 +47,7 @@ impl Dynamo {
         }
 
         println!("Logs will be saved to {}", LOG_FILE_NAME);
-        println!("Batch write process started:");
+        println!("Starting to upload records:");
 
         let mut current_batch = Vec::new();
 
@@ -65,14 +65,14 @@ impl Dynamo {
             self.batch_write(header, &current_batch).await;
         }
 
-        println!("Batch write process ended.");
+        println!("All the records have been processed:");
         println!();
     }
 
     pub fn preview_record(&mut self, header: &Vec<String>, row: &Vec<String>) {
         println!("Preview first record..");
-        let write_request = build_write_request(header, row, &self.table_attrs);
-        println!("1: {}", serde_json::to_string(&write_request).unwrap());
+        let item = build_write_request(header, row, &self.table_attrs).put_request.unwrap().item;
+        println!("1: {}", serde_json::to_string(&item).unwrap());
         println!();
     }
 
@@ -149,15 +149,15 @@ impl Dynamo {
 
 // build a single write request for given header and row
 fn build_write_request(header: &Vec<String>, row: &Vec<String>, table_attrs: &HashMap<String, String>) -> WriteRequest {
-    let mut put_request = HashMap::new();
+    let mut items = HashMap::new();
 
     // row must have the same length as header (check before calling this method)
     for (i, column_name) in header.iter().enumerate() {
-        put_request.insert(column_name.to_owned(), build_attr(table_attrs.get(column_name), row[i].to_owned()));
+        items.insert(column_name.to_owned(), build_attr(table_attrs.get(column_name), row[i].to_owned()));
     }
     
     WriteRequest {
-        put_request: Some(PutRequest{item: put_request}),
+        put_request: Some(PutRequest{item: items}),
         ..Default::default()
     }
 }

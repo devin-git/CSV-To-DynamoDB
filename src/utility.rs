@@ -29,11 +29,11 @@ pub fn parse_csv(filename: String) -> (Vec<String>, Vec<Vec<String>>) {
 
 // read an integer, given specified range
 pub fn read_int(prompt_text: &str, lower_bound: i32, upper_bound: i32) -> i32 {
+
+    print!("{} ({}-{})", prompt_text, lower_bound, upper_bound);
+
     let mut text = String::new();
-
-    print!("{}", prompt_text);
     io::stdout().flush().unwrap();
-
     io::stdin()
         .read_line(&mut text)
         .expect("Failed to read input.");
@@ -51,16 +51,40 @@ pub fn read_int(prompt_text: &str, lower_bound: i32, upper_bound: i32) -> i32 {
 // read a string
 pub fn read_text(prompt_text: &str) -> String {
 
-    let mut text = String::new();
-
     print!("{}", prompt_text);
-    io::stdout().flush().unwrap();
 
+    let mut text = String::new();
+    io::stdout().flush().unwrap();
     io::stdin()
-    .read_line(&mut text)
-    .expect("Failed to read input.");
+        .read_line(&mut text)
+        .expect("Failed to read input.");
 
     text.trim().to_owned()
+}
+
+// read a boolean (yes or no)
+pub fn read_yes_or_no(prompt_text: &str, default: bool) -> bool {
+
+    if default {
+        print!("{} (Y/n)", prompt_text);
+    }
+    else {
+        print!("{} (y/N)", prompt_text);
+    }
+    
+    let mut text = String::new();
+    io::stdout().flush().unwrap();
+    io::stdin()
+        .read_line(&mut text)
+        .expect("Failed to read input.");
+
+    let answer = text.trim().to_lowercase();
+
+    if answer.len() < 1 {
+        default
+    } else {
+        answer.chars().nth(0).unwrap() == 'y'
+    }
 }
 
 pub fn show_help() {
