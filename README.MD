@@ -36,7 +36,7 @@
 
 #### CSV Type Inference
 
-DynamoDB table only specifies the type of primary key and sort key. For non-key attributes, this program infers the type based on the value. However, it is impossible to differentiate between primitive lists and sets, as they can have the same value (e.g. *[1, 2, 3]*). Thus, **all primitive lists will be converted to sets by default**. This conversion can be disabled via a flag (see help for more information).
+DynamoDB table only specifies the type of primary key and sort key. For non-key attributes, this program infers the type based on the value. However, it is impossible to differentiate between primitive lists and sets, as they can have the same value (e.g. *[1, 2, 3]*). Thus, **all primitive lists will be converted to sets by default** (except list of duplicates and empty list). This conversion can be disabled via a flag (see help for more information).
 
 Supported formats:
 
