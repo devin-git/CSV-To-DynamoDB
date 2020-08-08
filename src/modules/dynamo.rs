@@ -1,10 +1,9 @@
-use serde_json::Value;
 use rusoto_dynamodb::{DynamoDb, DynamoDbClient, AttributeValue, BatchWriteItemInput, 
     DescribeTableInput, WriteRequest, PutRequest};
 use bytes::{Bytes};
 use std::{thread::sleep, time::Duration, fs::File, io::{BufWriter, Write}, process::exit};
 use std::collections::HashMap;
-use super::utility::{Progress_Printer, read_yes_or_no};
+use super::utility::{ProgressPrinter, read_yes_or_no};
 
 pub struct Dynamo {
     client: DynamoDbClient,
@@ -49,24 +48,27 @@ impl Dynamo {
         // get table definition (type of primary key/sort key)
         self.table_attrs = self.get_table_attrs().await;
 
+        // save header into csv of failed items
+        self.save_row_to_csv(header);
+
         println!("Starting to upload records:");
 
         let success_count = self.all_batch_write(header, rows).await;
         let error_rate = 100.0 * (rows.len() - success_count) as f64 / rows.len() as f64; 
 
-        println!("All the records have been processed.");
+        println!("All the records have been processed!");
         println!("Logs has been saved to {}", LOG_FILE_NAME);
-        println!("{}/{} items has been saved in DynamoDB. Error rate:{:.2}%",
+        println!("Failed items has been saved to {}", FAILED_CSV_FILE_NAME);
+        println!("{}/{} items has been saved in DynamoDB. Error rate: {:.2}%",
             success_count, rows.len(), error_rate);
         println!();
     }
 
     // preview record for user to check if type inference works as expected
-    pub fn preview_record(&mut self, header: &Vec<String>, row: &Vec<String>) {
-        print!("Preview the first record in DynamoDB Json:");
-
-        let item = build_write_request(header, row, &self.table_attrs).put_request.unwrap().item;
-        println!("{}", serde_json::to_string(&item).unwrap());
+    fn preview_record(&mut self, header: &Vec<String>, row: &Vec<String>) {
+        let item = build_write_request(header, row, &self.table_attrs)
+            .put_request.expect("Invalid csv: cannot parse the first record").item;
+        println!("Preview the first record in DynamoDB Json format: {}", serde_json::to_string(&item).unwrap());
 
         if !read_yes_or_no("Does the record format look correct?", true) {
             println!("Incorrect format, exiting...");
@@ -77,10 +79,10 @@ impl Dynamo {
     }
 
     // split all rows into batches and upload them sequentially 
-    pub async fn all_batch_write(&mut self, header: &Vec<String>, rows: &Vec<Vec<String>>) -> usize {
+    async fn all_batch_write(&mut self, header: &Vec<String>, rows: &Vec<Vec<String>>) -> usize {
         let mut current_batch = Vec::new();
         let mut success_count = 0;
-        let mut progress_printer = Progress_Printer::new(rows.len());
+        let mut progress_printer = ProgressPrinter::new(rows.len());
 
         for (i, row) in rows.iter().enumerate() {
             current_batch.push(row);
@@ -132,6 +134,9 @@ impl Dynamo {
                 Err(error) => {
                     self.log_requests("Write failure:", &write_requests);
                     writeln!(self.logger, "Error message: {}", error).expect("Error: cannot save logs");
+                    for row in rows {
+                        self.save_row_to_csv(row);
+                    }
                 }
             }
         }
@@ -164,10 +169,10 @@ impl Dynamo {
         table_attrs
     }
 
-    // write logs to LOG_FILE_NAME
+    // save a batch of requests to logs
     fn log_requests(&mut self, text: &str, requests: &Vec<WriteRequest>) {
         for request in requests {
-            // need to convert request hashmap to vector then sort by key
+            // convert request hashmap to vector then sort by key
             let mut v: Vec<_> = request.put_request.clone().unwrap().item.into_iter().collect();
             v.sort_by(|x,y| x.0.cmp(&y.0));
             writeln!(self.logger, "{} {}", text.to_owned(), serde_json::to_string(&v).unwrap()).expect("Error: cannot save logs.");
@@ -175,8 +180,14 @@ impl Dynamo {
     }
 
     // save a row to csv of failed items
+    // columns in the row will always be quoted
     fn save_row_to_csv(&mut self, row: &Vec<String>) {
-        
+        let mut columns = Vec::new();
+        for column in row {
+            // escape quotes, then add a pair of quotes at outermost layer
+            columns.push(format!("\"{}\"", column.replace("\"", "\"\"")));
+        }
+        writeln!(self.csv_writer, "{}", columns.join(",")).expect("Error: cannot save failed items to csv.");
     }
 }
 
@@ -194,16 +205,6 @@ fn build_write_request(header: &Vec<String>, row: &Vec<String>, table_attrs: &Ha
         ..Default::default()
     }
 }
-
-// print serialised write request
-// fn print_write_requests(text: &str, requests: &Vec<WriteRequest>) {
-//     for request in requests {
-//         // need to convert request hashmap to vector then sort by key
-//         let mut v: Vec<_> = request.put_request.clone().unwrap().item.into_iter().collect();
-//         v.sort_by(|x,y| x.0.cmp(&y.0));
-//         println!("{} {}", text.to_owned(), serde_json::to_string(&v).unwrap())
-//     } 
-// }
 
 fn build_attr(column_type: Option<&String>, text: String) -> AttributeValue {
     match column_type {

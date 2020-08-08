@@ -30,7 +30,7 @@ pub fn parse_csv(filename: String) -> (Vec<String>, Vec<Vec<String>>) {
 // read an integer, given specified range
 pub fn read_int(prompt_text: &str, lower_bound: i32, upper_bound: i32) -> i32 {
 
-    print!("{} ({}-{})", prompt_text, lower_bound, upper_bound);
+    print!("{} ({}-{}):", prompt_text, lower_bound, upper_bound);
 
     let mut text = String::new();
     io::stdout().flush().unwrap();
@@ -51,7 +51,7 @@ pub fn read_int(prompt_text: &str, lower_bound: i32, upper_bound: i32) -> i32 {
 // read a string
 pub fn read_text(prompt_text: &str) -> String {
 
-    print!("{}", prompt_text);
+    print!("{}:", prompt_text);
 
     let mut text = String::new();
     io::stdout().flush().unwrap();
@@ -66,10 +66,10 @@ pub fn read_text(prompt_text: &str) -> String {
 pub fn read_yes_or_no(prompt_text: &str, default: bool) -> bool {
 
     if default {
-        print!("{} (Y/n)", prompt_text);
+        print!("{} (Y/n):", prompt_text);
     }
     else {
-        print!("{} (y/N)", prompt_text);
+        print!("{} (y/N):", prompt_text);
     }
 
     let mut text = String::new();
@@ -87,9 +87,8 @@ pub fn read_yes_or_no(prompt_text: &str, default: bool) -> bool {
     }
 }
 
-pub struct Progress_Printer {
+pub struct ProgressPrinter {
     current_percentage: usize,
-    current_count: usize,
     total_count: usize,
 }
 
@@ -97,11 +96,10 @@ pub struct Progress_Printer {
 // example of 12%
 // ==========:10%
 // ==
-impl Progress_Printer {
-    pub fn new(total_count: usize) -> Progress_Printer {
-        Progress_Printer {
+impl ProgressPrinter {
+    pub fn new(total_count: usize) -> ProgressPrinter {
+        ProgressPrinter {
             current_percentage: 0,
-            current_count: 0,
             total_count: total_count
         }
     }
