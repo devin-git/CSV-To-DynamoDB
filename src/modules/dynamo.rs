@@ -2,7 +2,7 @@ use serde_json::Value;
 use rusoto_dynamodb::{DynamoDb, DynamoDbClient, AttributeValue, BatchWriteItemInput, 
     DescribeTableInput, WriteRequest, PutRequest};
 use bytes::{Bytes};
-use std::{thread::sleep, time::Duration, fs::File, io::{BufWriter, Write} };
+use std::{thread::sleep, time::Duration, fs::File, io::{BufWriter, Write}, process::exit};
 use std::collections::HashMap;
 use super::utility::{read_yes_or_no};
 
@@ -38,13 +38,13 @@ impl Dynamo {
     // save all records into dynamoDB (multiple batches)
     pub async fn save_all(&mut self, header: &Vec<String>, rows: &Vec<Vec<String>>) {
 
-        // get table definition (type of primary key/sort key)
-        self.table_attrs = self.get_table_attrs().await;
-
         // preview first record to check if type inference works as expected
         if self.config.should_preview_record {
             self.preview_record(header, &rows[0]);
         }
+
+        // get table definition (type of primary key/sort key)
+        self.table_attrs = self.get_table_attrs().await;
 
         println!("Logs will be saved to {}", LOG_FILE_NAME);
         println!("Starting to upload records:");
@@ -69,10 +69,17 @@ impl Dynamo {
         println!();
     }
 
+    // preview record for user to check if type inference works as expected
     pub fn preview_record(&mut self, header: &Vec<String>, row: &Vec<String>) {
-        println!("Preview first record..");
+        print!("Preview the first record in DynamoDB Json:");
+
         let item = build_write_request(header, row, &self.table_attrs).put_request.unwrap().item;
-        println!("1: {}", serde_json::to_string(&item).unwrap());
+        println!("{}", serde_json::to_string(&item).unwrap());
+
+        if !read_yes_or_no("Does the record format look correct?", true) {
+            println!("Incorrect format, exiting...");
+            exit(-1);
+        }
 
         println!();
     }
@@ -116,8 +123,9 @@ impl Dynamo {
     // get attribute definition of the target table
     // we can only get type of primary key / sort key
     async fn get_table_attrs(&self) -> HashMap<String, String> {
-        let mut table_attrs = HashMap::new();
+        println!("Reading DynamoDB table definition...");
 
+        let mut table_attrs = HashMap::new();
         let describe_table_input = DescribeTableInput {
             table_name: self.config.table_name.to_owned()
         };

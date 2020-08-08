@@ -1,4 +1,4 @@
-use std::{process, env};
+use std::{process::exit, env};
 use modules::dynamo::{Dynamo, Config};
 use modules::utility::{read_int, read_text, read_yes_or_no, parse_csv, show_help};
 
@@ -12,7 +12,7 @@ async fn main() {
     if args.len() < 2 {
         println!("Please provide csv file name.");
         show_help();
-        process::exit(-1);
+        exit(-1);
     }
 
     let csv_filename = args[1].to_owned();
@@ -25,7 +25,7 @@ async fn main() {
     let batch_size = read_int("Input batch size:", 1, 25);
     let batch_interval = read_int("Input batch interval in milliseconds:", 5, 10000);
     let should_use_set_by_default = read_yes_or_no("Would you like to convert list to set when possible?", true);
-    let should_preview_record = read_yes_or_no("Would you like to preview first record before uploading?", true);
+    let should_preview_record = read_yes_or_no("Would you like to preview the first record before uploading?", true);
     println!();
 
     let mut client = Dynamo::new(
@@ -42,9 +42,8 @@ async fn main() {
 
     if rows.len() <= 0 {
         println!("Empty csv, exiting..");
-        process::exit(0);
+        exit(0);
     }
 
-    println!("Connecting to DynamoDB...");
     client.save_all(&header, &rows).await;
 }
