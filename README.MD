@@ -21,9 +21,9 @@
   
 - Command Mode
 
-    - `csv_to_dynamo -f [filename] -r [aws_region] -t [table_name]` 
+    - `csv_to_dynamo [filename] -r [aws_region] -t [table_name]` 
 
-- See help for detailed usage
+- Check Detailed Usage
 
     - `csv_to_dynamo -h`
 
