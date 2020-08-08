@@ -40,7 +40,7 @@ async fn main() {
     );
 
 
-    if rows.len() <= 0 {
+    if rows.is_empty() {
         println!("Empty csv, exiting..");
         exit(0);
     }
