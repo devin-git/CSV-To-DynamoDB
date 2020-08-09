@@ -79,7 +79,7 @@ fn get_arguments_interactive_mode(filename: String) -> (String, Config) {
     // initialise parameters for DynamoDB
     let region = read_text("Input Region (eg. ap-southeast-2)");
     let table_name = read_text("Input table name");
-    let batch_size = read_int("Input batch size", BATCH_SIZE_MIN, BATCH_INTERVAL_MAX);
+    let batch_size = read_int("Input batch size", BATCH_SIZE_MIN, BATCH_SIZE_MAX);
     let batch_interval = read_int("Input batch interval in milliseconds", BATCH_INTERVAL_MIN, BATCH_INTERVAL_MAX);
     let should_use_set_if_possible = read_yes_or_no("Would you like to convert list to set whenever possible?", false);
     let should_preview_record = read_yes_or_no("Would you like to preview the first record before uploading?", true);
