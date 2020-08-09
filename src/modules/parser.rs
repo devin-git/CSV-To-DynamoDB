@@ -88,8 +88,8 @@ impl Parser {
                 let array_type = self.parse_json_array_type(&array);
                 match array_type {
                     ArrayType::List => build_list_attr(array.into_iter().map(|x| self.parse_json_as_attr(x)).collect()),
-                    ArrayType::StringSet => build_string_set_attr(array.into_iter().map(|x| to_string(&x).unwrap()).collect()),
-                    ArrayType::NumberSet => build_number_set_attr(array.into_iter().map(|x| to_string(&x).unwrap()).collect()),
+                    ArrayType::StringSet => build_string_set_attr(array.into_iter().map(|x| x.as_str().unwrap().to_string()).collect()),
+                    ArrayType::NumberSet => build_number_set_attr(array.into_iter().map(|x| x.as_str().unwrap().to_string()).collect()),
                 }
             }
 
