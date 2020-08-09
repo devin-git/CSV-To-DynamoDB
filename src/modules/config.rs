@@ -36,7 +36,7 @@ pub fn get_arguments() -> (String, Config) {
 fn get_arguments_command_mode() -> (String, Config) {
     let matches = clap_app!(x =>
         (name: "CSV_To_DynamoDB")
-        (version: "0.1.0")
+        (version: "0.1.1")
         (author: "Devin (github.com/devin-git)")
         (@arg FILENAME: +required "Provide CSV filename")
         (@arg REGION: -r --region +required +takes_value "Specify AWS region. E.g. ap-southeast-2, ca-central-1, eu-north-1, sa-east-1, us-west-1, cn-north-1, etc.")
