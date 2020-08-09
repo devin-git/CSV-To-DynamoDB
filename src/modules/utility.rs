@@ -27,8 +27,8 @@ pub fn parse_csv(filename: String) -> (Vec<String>, Vec<Vec<String>>) {
     (header_vec, rows_vec)
 }
 
-// read an integer, given specified range
-pub fn read_int(prompt_text: &str, lower_bound: i32, upper_bound: i32) -> i32 {
+// read a non-negative integer, given specified range
+pub fn read_int(prompt_text: &str, lower_bound: usize, upper_bound: usize) -> usize {
 
     print!("{} ({}-{}):", prompt_text, lower_bound, upper_bound);
 
@@ -38,14 +38,9 @@ pub fn read_int(prompt_text: &str, lower_bound: i32, upper_bound: i32) -> i32 {
         .read_line(&mut text)
         .expect("Failed to read input.");
 
-    let n: i32 = text.trim().parse().expect("Invalid input");
+    let n: usize = text.trim().parse().expect("Error: Input is not a valid number.");
 
-    if n < lower_bound || n > upper_bound {
-        println!("Invalid input: {} is not between {} and {}.", n, lower_bound, upper_bound);
-        process::exit(-1);
-    } else {
-        n
-    }
+    check_range(n, lower_bound, upper_bound)
 }
 
 // read a string
@@ -69,7 +64,7 @@ pub fn read_yes_or_no(prompt_text: &str, default: bool) -> bool {
         print!("{} (Y/n):", prompt_text);
     }
     else {
-        print!("{} (y/N):", prompt_text);
+        print!("{} (N/y):", prompt_text);
     }
 
     let mut text = String::new();
@@ -85,6 +80,14 @@ pub fn read_yes_or_no(prompt_text: &str, default: bool) -> bool {
     } else {
         answer.chars().nth(0).unwrap() == 'y'
     }
+}
+
+pub fn check_range(input: usize, lower_bound: usize, upper_bound: usize) -> usize {
+    if input < lower_bound || input > upper_bound {
+        println!("Invalid input: {} is not between {} and {}.", input, lower_bound, upper_bound);
+        process::exit(-1);
+    }
+    input
 }
 
 pub struct ProgressPrinter {
@@ -116,28 +119,4 @@ impl ProgressPrinter {
             }
         } 
     }
-}
-
-pub fn show_help() {
-    let help_info = r#"
-Usage:
-Linux or macOS: ./csv_to_dynamo input.csv
-Windows: csv_to_dynamo input.csv
-
-CSV Type Inference:
-This program reads DynamoDB table description to determine the type of primary key and sort key.
-For non-key attributes, the type will be determined using type inference. 
-However, it is impossible to differentiate between primitive lists and sets, as they share the same format. 
-Thus, all primitive lists will be converted to sets by default. This conversion can be disabled via a flag.
-Inference examples:
-    * Bool: true
-    * Number: 123.456
-    * String: ABC
-    * Map: {"Name": "Joe", "Age": 15}
-    * List: ["Giraffe", "Hippo" , 100]
-    * String Set or List: ["Giraffe", "Hippo" ,"Zebra"]
-    * Number Set or List: ["42.2", "-19", "7.5", "3.14"]
-    "#;
-
-    println!("{}", help_info);
 }

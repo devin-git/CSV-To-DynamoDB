@@ -1,3 +1,4 @@
 pub mod dynamo;
-pub mod utility;
 pub mod parser;
+pub mod utility;
+pub mod config;

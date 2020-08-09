@@ -5,14 +5,14 @@ use bytes::Bytes;
 use itertools::Itertools;
 
 pub struct Parser {
-    should_use_set_by_default: bool
+    should_use_set_if_possible: bool
 }
 
 impl Parser {
 
-    pub fn new(should_use_set_by_default: bool) -> Parser {
+    pub fn new(should_use_set_if_possible: bool) -> Parser {
         Parser {
-            should_use_set_by_default: should_use_set_by_default
+            should_use_set_if_possible: should_use_set_if_possible
         }
     }
 
@@ -104,9 +104,9 @@ impl Parser {
     }
 
     // a list in the json can be either List or Set in dynamodb
-    // this method takes into account should_use_set_by_default 
+    // this method takes into account should_use_set_if_possible 
     fn parse_json_array_type(&self, list: &Vec<Value>) -> ArrayType {
-        if !self.should_use_set_by_default {
+        if !self.should_use_set_if_possible {
             ArrayType::List
         } else {
             // set cannot be empty in dynamodb

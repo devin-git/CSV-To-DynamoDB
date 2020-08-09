@@ -1,9 +1,11 @@
 use rusoto_dynamodb::{DynamoDb, DynamoDbClient, BatchWriteItemInput, 
-    DescribeTableInput, WriteRequest, PutRequest};
-use std::{thread::sleep, time::Duration, fs::File, io::{BufWriter, Write}, process::exit};
-use std::collections::HashMap;
+    DescribeTableInput, WriteRequest, PutRequest, BatchWriteItemError};
+use rusoto_core::RusotoError;
+use std::{thread::sleep, time::Duration, fs::File, io::{BufWriter, Write}, process::exit,
+    collections::HashMap};
 use super::utility::{ProgressPrinter, read_yes_or_no};
 use super::parser::Parser;
+use super::config::{LOG_FILE_NAME, FAILED_CSV_FILE_NAME, Config};
 
 pub struct Dynamo {
     client: DynamoDbClient,
@@ -14,25 +16,12 @@ pub struct Dynamo {
     csv_writer: BufWriter<File>,
 }
 
-#[derive(Clone)]
-pub struct Config {
-    pub region: String, 
-    pub table_name: String,
-    pub batch_size: usize,
-    pub batch_interval: u64,
-    pub should_use_set_by_default: bool, // convert list to set in dynamodb when possible
-    pub should_preview_record: bool,
-}
-
-const LOG_FILE_NAME: &str = "batch_write_logs.txt";
-const FAILED_CSV_FILE_NAME: &str = "failed_items.csv";
-
 impl Dynamo {
 
     pub fn new(config: Config) -> Dynamo {
         Dynamo {
             client: DynamoDbClient::new(config.region.parse().unwrap()),
-            parser: Parser::new(config.should_use_set_by_default),
+            parser: Parser::new(config.should_use_set_if_possible),
             config: config,
             table_attrs: HashMap::new(),
             logger: BufWriter::new(File::create(LOG_FILE_NAME).unwrap()),
@@ -133,12 +122,11 @@ impl Dynamo {
 
             match self.client.batch_write_item(input).await {
                 Ok(_) => {
-                    self.log_requests("Write success:", &write_requests);
+                    self.log_requests(&write_requests, None);
                     success_count += rows.len();
                 },
                 Err(error) => {
-                    self.log_requests("Write failure:", &write_requests);
-                    writeln!(self.logger, "Error message: {}", error).expect("Error: cannot save logs");
+                    self.log_requests(&write_requests, Some(error));
                     for row in rows {
                         self.save_row_to_csv(row);
                     }
@@ -155,7 +143,7 @@ impl Dynamo {
 
         // row must have the same length as header (check before calling this method)
         for (i, column_name) in header.iter().enumerate() {
-            items.insert(column_name.to_owned(), self.parser.build_attr(table_attrs.get(column_name), row[i].to_owned()));
+            items.insert(column_name.to_owned(), self.parser.build_attr(table_attrs.get(column_name), row[i].to_string()));
         }
         
         WriteRequest {
@@ -190,13 +178,27 @@ impl Dynamo {
     }
 
     // save a batch of requests to logs
-    fn log_requests(&mut self, text: &str, requests: &Vec<WriteRequest>) {
-        for request in requests {
-            // convert request hashmap to vector then sort by key
-            let mut v: Vec<_> = request.put_request.clone().unwrap().item.into_iter().collect();
-            v.sort_by(|x,y| x.0.cmp(&y.0));
-            writeln!(self.logger, "{} {}", text.to_owned(), serde_json::to_string(&v).unwrap()).expect("Error: cannot save logs.");
-        } 
+    fn log_requests(&mut self, requests: &Vec<WriteRequest>, error: Option<RusotoError<BatchWriteItemError>>) {
+        if self.config.enable_log {
+
+            let request_result = match error {
+                None => "Success",
+                _ => "Failure",
+            };
+
+            for request in requests {
+                // convert request hashmap to vector then sort by key
+                let mut v: Vec<_> = request.put_request.clone().unwrap().item.into_iter().collect();
+                v.sort_by(|x,y| x.0.cmp(&y.0));
+                writeln!(self.logger, "{}: {}", request_result, serde_json::to_string(&v).unwrap()).expect("Error: cannot save logs.");
+            }
+
+            if error.is_some() {
+                writeln!(self.logger, "Error message: {}", error.unwrap()).expect("Error: cannot save logs.");
+            }
+
+            writeln!(self.logger, "=====").unwrap_or_default();
+        }
     }
 
     // save a row to csv of failed items
