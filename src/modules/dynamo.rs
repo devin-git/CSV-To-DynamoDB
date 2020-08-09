@@ -20,7 +20,8 @@ impl Dynamo {
 
     pub fn new(config: Config) -> Dynamo {
         Dynamo {
-            client: DynamoDbClient::new(config.region.parse().unwrap()),
+            client: DynamoDbClient::new(config.region.parse()
+                .expect(format!("{} is not a valid AWS region. Examples of region can be found in help", config.region.as_str()).as_str())),
             parser: Parser::new(config.should_use_set_if_possible),
             config: config,
             table_attrs: HashMap::new(),
@@ -49,10 +50,11 @@ impl Dynamo {
         let error_rate = 100.0 * (rows.len() - success_count) as f64 / rows.len() as f64; 
 
         println!("All the records have been processed!");
-        println!("Logs has been saved to {}", LOG_FILE_NAME);
+        if self.config.enable_log {
+            println!("Logs has been saved to {}", LOG_FILE_NAME);
+        }
         println!("Failed items has been saved to {}", FAILED_CSV_FILE_NAME);
-        println!("{}/{} items has been saved in DynamoDB. Error rate: {:.2}%",
-            success_count, rows.len(), error_rate);
+        println!("{}/{} items has been saved in DynamoDB. Error rate: {:.2}%", success_count, rows.len(), error_rate);
         println!();
     }
 
