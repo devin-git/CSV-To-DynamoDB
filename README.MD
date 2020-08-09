@@ -7,7 +7,10 @@
 - Save failed records into csv
 - Save all requests and error messages into log
 
-## Installation
+## Download
+- [Latest](https://github.com/devin-git/CSV-To-DynamoDB/releases) 
+
+## Install From Source
 
 1. Install [Rust](https://www.rust-lang.org)
 2. Clone the repo
