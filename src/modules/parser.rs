@@ -5,16 +5,17 @@ use bytes::Bytes;
 use itertools::Itertools;
 
 pub struct Parser {
-    should_use_set_if_possible: bool
+    pub allow_set: bool,
+    pub allow_null: bool,
+}
+
+enum ArrayType {
+    List,
+    NumberSet,
+    StringSet
 }
 
 impl Parser {
-
-    pub fn new(should_use_set_if_possible: bool) -> Parser {
-        Parser {
-            should_use_set_if_possible: should_use_set_if_possible
-        }
-    }
 
     pub fn build_attr(&self, column_type: Option<&String>, text: String) -> AttributeValue {
         match column_type {
@@ -68,8 +69,7 @@ impl Parser {
         match json {
     
             Value::Null => {
-                // this is inside list or map, use empty string instead of null
-                build_empty_string_attr()
+                build_null_attr()
             }
     
             Value::Bool(x) => {
@@ -86,27 +86,41 @@ impl Parser {
     
             Value::Array(array) => {
                 let array_type = self.parse_json_array_type(&array);
+                
                 match array_type {
-                    ArrayType::List => build_list_attr(array.into_iter().map(|x| self.parse_json_as_attr(x)).collect()),
-                    ArrayType::StringSet => build_string_set_attr(array.into_iter().map(|x| x.as_str().unwrap().to_string()).collect()),
-                    ArrayType::NumberSet => build_number_set_attr(array.into_iter().map(|x| x.as_str().unwrap().to_string()).collect()),
+                    ArrayType::List => build_list_attr(
+                        array.into_iter()
+                            .filter(|x| !x.is_null() || self.allow_null) // ignore null if not allowed
+                            .map(|x| self.parse_json_as_attr(x))
+                            .collect()),
+                    ArrayType::StringSet => build_string_set_attr( // set won't have null
+                        array.into_iter()
+                        .map(|x| x.as_str().unwrap().to_string())  
+                        .collect()),
+                    ArrayType::NumberSet => build_number_set_attr( // set won't have null
+                        array.into_iter()
+                        .map(|x| x.as_str().unwrap().to_string())
+                        .collect()),
                 }
             }
 
             Value::Object(dictionary) => {
-                let mut attr_map = HashMap::new();
+                let mut map_attribute = HashMap::new();
                 for (k, v) in dictionary {
-                    attr_map.insert(k, self.parse_json_as_attr(v));
+                    let v_attribute = self.parse_json_as_attr(v);
+                    if v_attribute.null.is_none() || self.allow_null {  // ignore null if not allowed
+                        map_attribute.insert(k, v_attribute);
+                    }
                 }
-                build_map_attr(attr_map)
+                build_map_attr(map_attribute)
             }
         }
     }
 
     // a list in the json can be either List or Set in dynamodb
-    // this method takes into account should_use_set_if_possible 
+    // this method takes into account allow_set 
     fn parse_json_array_type(&self, list: &Vec<Value>) -> ArrayType {
-        if !self.should_use_set_if_possible {
+        if !self.allow_set {
             ArrayType::List
         } else {
             // set cannot be empty in dynamodb
@@ -123,12 +137,6 @@ impl Parser {
             }
         }
     }
-}
-
-enum ArrayType {
-    List,
-    NumberSet,
-    StringSet
 }
 
 // check if all itmes in the list is unique string
@@ -148,17 +156,12 @@ fn is_number_set(list: &Vec<Value>) -> bool {
     }
 }
 
-// this should only be used at top level
-// it cannot be used inside map or list
+// null type in dynamodb
 fn build_null_attr() -> AttributeValue {
     AttributeValue {
-        s: None,
+        null: Some(true),
         ..Default::default()
     }
-}
-
-fn build_empty_string_attr() -> AttributeValue {
-    build_string_attr("".to_string())
 }
 
 fn build_string_attr(text: String) -> AttributeValue {
