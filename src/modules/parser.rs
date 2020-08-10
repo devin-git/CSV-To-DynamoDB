@@ -156,8 +156,7 @@ fn is_number_set(list: &Vec<Value>) -> bool {
     }
 }
 
-// this should only be used at top level
-// it cannot be used inside map or list
+// null type in dynamodb
 fn build_null_attr() -> AttributeValue {
     AttributeValue {
         null: Some(true),
