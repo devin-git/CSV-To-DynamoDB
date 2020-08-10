@@ -22,7 +22,10 @@ impl Dynamo {
         Dynamo {
             client: DynamoDbClient::new(config.region.parse()
                 .expect(format!("{} is not a valid AWS region. Examples of region can be found in help", config.region.as_str()).as_str())),
-            parser: Parser::new(config.should_use_set_if_possible),
+            parser: Parser {
+                allow_set: config.allow_set,
+                allow_null: config.allow_null,
+            },
             config: config,
             table_attrs: HashMap::new(),
             logger: BufWriter::new(File::create(LOG_FILE_NAME).unwrap()),
@@ -145,7 +148,10 @@ impl Dynamo {
 
         // row must have the same length as header (check before calling this method)
         for (i, column_name) in header.iter().enumerate() {
-            items.insert(column_name.to_owned(), self.parser.build_attr(table_attrs.get(column_name), row[i].to_string()));
+            let attribute = self.parser.build_attr(table_attrs.get(column_name), row[i].to_string());
+            if self.config.allow_null || attribute.null.is_none() {
+                items.insert(column_name.to_owned(), attribute);
+            }
         }
         
         WriteRequest {
