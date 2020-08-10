@@ -48,6 +48,7 @@ DynamoDB table description only specifies the type of primary key and sort key. 
 * String Set or List: *["Giraffe", "Hippo" ,"Zebra"]*
 * Number Set or List: *[42.2, -19, 7.5, 3.14]*
 * JSON: *[{"Name": "Joe", "Age": 15}, {"Subjects": [ {"Id": 1, "IsActive": true, "Scores": [10, 20, 30]}]}]*
+* Null: *null* (omitted unless --allownull is enabled) 
 
 ## License
 

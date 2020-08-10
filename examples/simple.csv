@@ -1,3 +1,4 @@
 "Guid","Count","Enabled","Users"
-"0d9a9d6d-9ce3-4d82-899e-450a8fe4668b","50","true","[""aa"", ""bb""]"
+"0d9a9d6d-9ce3-4d82-899e-450a8fe4668b","50","true","[""Alice"", ""Bob""]"
 "37bdfe4d-d25b-46b3-832f-84462f2fe784","200","false","[]"
+"2e076ae4-b760-4477-b0dc-87bd96c4cf58","-500.5","false","null"
