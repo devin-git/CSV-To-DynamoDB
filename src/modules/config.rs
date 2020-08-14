@@ -1,9 +1,9 @@
+use super::utility::{check_range, read_int, read_text, read_yes_or_no};
 use clap::clap_app;
 use std::env;
-use super::utility::{read_int, read_text, read_yes_or_no, check_range};
 
 pub struct Config {
-    pub region: String, 
+    pub region: String,
     pub table_name: String,
     pub batch_size: usize,
     pub batch_interval: u64,
@@ -15,13 +15,13 @@ pub struct Config {
     /*
         option: allow_set
         default: false
-        effect: when allow_set is true, all string and number lists will be 
+        effect: when allow_set is true, all string and number lists will be
         converted to sets if they meet the following requirements:
         1. not empty
         2. not contains null
         3. not contains duplicates
     */
-    pub allow_set: bool,        
+    pub allow_set: bool,
 
     /*
         option: allow_null
@@ -42,12 +42,15 @@ pub const BATCH_INTERVAL_MIN: usize = 0;
 pub const BATCH_INTERVAL_MAX: usize = 30000;
 pub const BATCH_INTERVAL_DEFAULT: &str = "50";
 
-
 pub fn get_arguments() -> (String, Config) {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() == 2 && args[1] != "-h" && args[1] != "--help"
-        && args[1] != "-V" && args[1] != "--version" {
+    if args.len() == 2
+        && args[1] != "-h"
+        && args[1] != "--help"
+        && args[1] != "-V"
+        && args[1] != "--version"
+    {
         get_arguments_interactive_mode(args[1].to_string())
     } else {
         get_arguments_command_mode()
@@ -72,22 +75,26 @@ fn get_arguments_command_mode() -> (String, Config) {
     .get_matches();
 
     let config = Config {
-        region:  matches.value_of("REGION")
-            .unwrap()
-            .to_string(),
-        table_name: matches.value_of("TABLE")
-            .unwrap()
-            .to_string(),
-        batch_size:  check_range(matches.value_of("BATCH_SIZE")
-            .unwrap_or(BATCH_SIZE_DEFAULT)
-            .parse()
-            .expect("Error: Batch size is not a valid number"),
-            BATCH_SIZE_MIN, BATCH_SIZE_MAX),
-        batch_interval: check_range(matches.value_of("BATCH_INTERVAL")
-            .unwrap_or(BATCH_INTERVAL_DEFAULT)
-            .parse()
-            .expect("Error: Batch Interval is not a valid number"),
-            BATCH_INTERVAL_MIN, BATCH_INTERVAL_MAX) as u64,
+        region: matches.value_of("REGION").unwrap().to_string(),
+        table_name: matches.value_of("TABLE").unwrap().to_string(),
+        batch_size: check_range(
+            matches
+                .value_of("BATCH_SIZE")
+                .unwrap_or(BATCH_SIZE_DEFAULT)
+                .parse()
+                .expect("Error: Batch size is not a valid number"),
+            BATCH_SIZE_MIN,
+            BATCH_SIZE_MAX,
+        ),
+        batch_interval: check_range(
+            matches
+                .value_of("BATCH_INTERVAL")
+                .unwrap_or(BATCH_INTERVAL_DEFAULT)
+                .parse()
+                .expect("Error: Batch Interval is not a valid number"),
+            BATCH_INTERVAL_MIN,
+            BATCH_INTERVAL_MAX,
+        ) as u64,
         should_preview_record: matches.is_present("PREVIEW"),
         enable_log: !matches.is_present("NO_LOG"),
         allow_set: matches.is_present("ALLOW_SET"),
@@ -98,24 +105,36 @@ fn get_arguments_command_mode() -> (String, Config) {
 }
 
 fn get_arguments_interactive_mode(filename: String) -> (String, Config) {
-
     // initialise parameters for DynamoDB
     let region = read_text("Input Region (eg. ap-southeast-2)");
     let table_name = read_text("Input table name");
     let batch_size = read_int("Input batch size", BATCH_SIZE_MIN, BATCH_SIZE_MAX);
-    let batch_interval = read_int("Input batch interval in milliseconds", BATCH_INTERVAL_MIN, BATCH_INTERVAL_MAX);
-    let allow_set = read_yes_or_no("Would you like to convert list to set whenever possible?", false);
-    let should_preview_record = read_yes_or_no("Would you like to preview the first record before uploading?", true);
+    let batch_interval = read_int(
+        "Input batch interval in milliseconds",
+        BATCH_INTERVAL_MIN,
+        BATCH_INTERVAL_MAX,
+    );
+    let allow_set = read_yes_or_no(
+        "Would you like to convert list to set whenever possible?",
+        false,
+    );
+    let should_preview_record = read_yes_or_no(
+        "Would you like to preview the first record before uploading?",
+        true,
+    );
     println!();
 
-    (filename, Config {
-        region: region,
-        table_name: table_name,
-        batch_size: batch_size,
-        batch_interval: batch_interval as u64,
-        should_preview_record: should_preview_record,
-        enable_log: true,
-        allow_set: allow_set,
-        allow_null: false,
-    })
+    (
+        filename,
+        Config {
+            region: region,
+            table_name: table_name,
+            batch_size: batch_size,
+            batch_interval: batch_interval as u64,
+            should_preview_record: should_preview_record,
+            enable_log: true,
+            allow_set: allow_set,
+            allow_null: false,
+        },
+    )
 }

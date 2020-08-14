@@ -1,7 +1,7 @@
-use std::process::exit;
+use modules::config::get_arguments;
 use modules::dynamo::Dynamo;
 use modules::utility::parse_csv;
-use modules::config::get_arguments;
+use std::process::exit;
 
 mod modules;
 
